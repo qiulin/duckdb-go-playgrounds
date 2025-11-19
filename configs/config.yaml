@@ -1,0 +1,6 @@
+server:
+  http:
+    addr: :7070
+   
+duckdb:
+  data_dir: ./duckdb_data
