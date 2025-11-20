@@ -4,13 +4,16 @@ import (
 	"context"
 	"os"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/labstack/echo/v4"
 	"github.com/lynx-go/lynx"
 	"github.com/lynx-go/lynx/contrib/log/zap"
 	"github.com/lynx-go/lynx/server/http"
+	"github.com/lynx-go/x/log"
 	"github.com/qiulin/duckdb-go-playgrounds/internal/api"
 	"github.com/qiulin/duckdb-go-playgrounds/internal/conf"
 	"github.com/qiulin/duckdb-go-playgrounds/internal/database"
+	"github.com/qiulin/duckdb-go-playgrounds/internal/service"
 	"github.com/samber/lo"
 )
 
@@ -25,7 +28,9 @@ func main() {
 		logger := zap.NewLogger(app)
 		app.SetLogger(logger)
 		config := &conf.Config{}
-		if err := app.Config().Unmarshal(config); err != nil {
+		if err := app.Config().Unmarshal(config, func(config *mapstructure.DecoderConfig) {
+			config.TagName = "json"
+		}); err != nil {
 			return err
 		}
 
@@ -33,19 +38,26 @@ func main() {
 		if err != nil {
 			return err
 		}
+		db, err := database.NewDuckDB(duckConn)
+		if err != nil {
+			return err
+		}
 		app.OnStop(func(ctx context.Context) error {
-			return duckConn.Close()
-		})
-		db := database.NewDuckDB(duckConn)
-		app.OnStop(func(ctx context.Context) error {
+			log.InfoContext(ctx, "closing database connection")
 			return db.Close()
 		})
-		app.OnStart(func(ctx context.Context) error {
-			_, err := db.ExecContext(ctx, "CREATE TABLE IF NOT EXISTS heartbeats (id VARCHAR, user_id INTEGER, room_id INTEGER, server_id INTEGER, room_type INTEGER, created_at TIMESTAMP)")
-			return err
-		})
 
-		writerApi, err := api.NewWriterAPI(duckConn)
+		batchWriter, err := service.NewBatchWriter("heartbeats", duckConn)
+		if err != nil {
+			return err
+		}
+		app.OnStart(func(ctx context.Context) error {
+			return batchWriter.Start(ctx)
+		})
+		app.OnStop(func(ctx context.Context) error {
+			return batchWriter.Stop(ctx)
+		})
+		writerApi, err := api.NewWriterAPI(batchWriter, db)
 		if err != nil {
 			return err
 		}
@@ -53,6 +65,7 @@ func main() {
 
 		router := echo.New()
 		router.POST("/api/write", writerApi.Write)
+		router.POST("/api/cleanup", writerApi.CleanUp)
 		router.GET("/api/query", queryApi.Query)
 
 		hs := http.NewServer(router, http.WithLogger(logger), http.WithAddr(config.Server.Http.Addr))

@@ -35,3 +35,4 @@ duckdb_data
 
 .idea
 .vscode
+*.db
