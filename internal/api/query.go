@@ -20,12 +20,49 @@ func NewQueryAPI(db *sql.DB) *QueryAPI {
 	}
 }
 
-func (api *QueryAPI) Query(ctx echo.Context) error {
+func (api *QueryAPI) Rows(ctx echo.Context) error {
+	rows, err := api.db.Query("SELECT COUNT(*) FROM heartbeats")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var count int
+	for rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			return err
+		}
+		break
+	}
+	return ctx.JSON(200, map[string]interface{}{
+		"count": count,
+	})
+}
+
+// QueryMinuteRetention 计算每分钟的留存
+func (api *QueryAPI) QueryMinuteRetention(ctx echo.Context) error {
 	req := &QueryRequest{}
 	if err := ctx.Bind(req); err != nil {
 		return err
 	}
-	results, err := api.query(ctx.Request().Context(), req)
+
+	return nil
+}
+
+func (api *QueryAPI) queryMinuteRetention(ctx context.Context, req *QueryRequest) error {
+
+	return nil
+}
+
+const minuteRetentionQuery = `
+
+`
+
+func (api *QueryAPI) QueryOnlines(ctx echo.Context) error {
+	req := &QueryRequest{}
+	if err := ctx.Bind(req); err != nil {
+		return err
+	}
+	results, err := api.queryOnlines(ctx.Request().Context(), req)
 	if err != nil {
 		log.ErrorContext(ctx.Request().Context(), "failed to query", err)
 		return err
@@ -34,7 +71,7 @@ func (api *QueryAPI) Query(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, results)
 }
 
-func (api *QueryAPI) query(ctx context.Context, req *QueryRequest) (QueryResults, error) {
+func (api *QueryAPI) queryOnlines(ctx context.Context, req *QueryRequest) (QueryResults, error) {
 	sb := sqlbuilder.NewSelectBuilder()
 	sb.Select("room_id", "APPROX_COUNT_DISTINCT(user_id) AS user_onlines")
 	sb.From("heartbeats")
@@ -47,6 +84,7 @@ func (api *QueryAPI) query(ctx context.Context, req *QueryRequest) (QueryResults
 	}
 	sb.GroupBy("room_id")
 	sb.OrderByDesc("user_onlines")
+	sb.OrderByAsc("room_id")
 	sb.Limit(200)
 	query, args := sb.Build()
 	log.InfoContext(ctx, "build query sql", "query", query, "args", args)

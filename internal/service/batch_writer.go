@@ -35,8 +35,8 @@ func NewBatchWriter(table string, conn *duckdb.Connector) (*BatchWriter, error) 
 	}
 	batch := bqueue.NewBatchQueue(&bqueue.Options{
 		Interval:      1 * time.Second,
-		MaxBatchItems: 100,
-		MaxQueueSize:  1024,
+		MaxBatchItems: 1000,
+		MaxQueueSize:  10240,
 	})
 	writer.batch = batch
 	return writer, nil

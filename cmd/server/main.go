@@ -66,7 +66,8 @@ func main() {
 		router := echo.New()
 		router.POST("/api/write", writerApi.Write)
 		router.POST("/api/cleanup", writerApi.CleanUp)
-		router.GET("/api/query", queryApi.Query)
+		router.GET("/api/query/onlines", queryApi.QueryOnlines)
+		router.GET("/api/rows", queryApi.Rows)
 
 		hs := http.NewServer(router, http.WithLogger(logger), http.WithAddr(config.Server.Http.Addr))
 		if err := app.Hook(hs); err != nil {

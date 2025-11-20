@@ -20,7 +20,7 @@ func main() {
 		if err := postWrite(ctx); err != nil {
 			panic(err)
 		}
-		time.Sleep(time.Duration(rand.IntN(10)) * time.Millisecond)
+		//time.Sleep(time.Duration(rand.IntN(10)) * time.Millisecond)
 	}
 }
 
