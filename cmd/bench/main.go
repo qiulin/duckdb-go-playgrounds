@@ -58,11 +58,11 @@ func postWrite(ctx context.Context) error {
 }
 
 func randRoomId() int {
-	return rand.IntN(300) + 1000
+	return rand.IntN(30) + 1000
 }
 
 func randUserId() int {
-	return rand.IntN(5000) + 1000000
+	return rand.IntN(500) + 1000000
 }
 
 func randRoomType() int {

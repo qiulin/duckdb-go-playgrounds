@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	gohttp "net/http"
 	"os"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -64,9 +65,22 @@ func main() {
 		queryApi := api.NewQueryAPI(db)
 
 		router := echo.New()
+		router.HTTPErrorHandler = func(err error, c echo.Context) {
+			log.ErrorContext(c.Request().Context(), "handler request error", err)
+			_ = c.JSON(gohttp.StatusInternalServerError, map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":    gohttp.StatusInternalServerError,
+					"message": "internal server error",
+					"meta": map[string]interface{}{
+						"details": err.Error(),
+					},
+				},
+			})
+		}
 		router.POST("/api/write", writerApi.Write)
 		router.POST("/api/cleanup", writerApi.CleanUp)
-		router.GET("/api/query/onlines", queryApi.QueryOnlines)
+		router.GET("/api/query/online", queryApi.QueryOnlines)
+		router.GET("/api/query/retention", queryApi.QueryMinuteRetention)
 		router.GET("/api/rows", queryApi.Rows)
 
 		hs := http.NewServer(router, http.WithLogger(logger), http.WithAddr(config.Server.Http.Addr))
